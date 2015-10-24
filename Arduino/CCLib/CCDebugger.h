@@ -88,6 +88,16 @@ public:
   byte getStatus();
 
   /**
+   * resume program exec
+   */
+  byte resume();
+  
+  /**
+   * halt program exec
+   */
+  byte halt();
+  
+  /**
    * Step a single instruction
    */
   byte step();

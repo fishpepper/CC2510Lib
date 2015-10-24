@@ -1,3 +1,5 @@
+#include <CCDebugger.h>
+
 /*
  /////////////////////////////////////////////////////////////////////////////// 
  This example demonstrates the use of the CCDebugger class from CCLib.
@@ -34,11 +36,11 @@
 #include <CCDebugger.h>
 
 // Pinout configuration (Configured for Teensy 2.0++)
-int LED      = 6;
-int CC_RST   = 5;
-int CC_DD_I  = 45;
-int CC_DD_O  = 38;
-int CC_DC    = 17;
+int LED      = 17; 
+int CC_RST   = 9;
+int CC_DD_I  = 2;
+int CC_DD_O  = 3;
+int CC_DC    = 7;
 
 // Command constants
 #define   CMD_ENTER    byte(0x01)
@@ -54,6 +56,8 @@ int CC_DC    = 17;
 #define   CMD_RD_CFG   byte(0x0B)
 #define   CMD_WR_CFG   byte(0x0C)
 #define   CMD_CHPERASE byte(0x0D)
+#define   CMD_RESUME   byte(0x0E)
+#define   CMD_HALT     byte(0x0F)
 #define   CMD_PING     byte(0xF0)
 
 // Response constants
@@ -164,6 +168,15 @@ void loop() {
     bAns = dbg->step();
     if (handleError()) return;
     sendFrame( ANS_OK, bAns );
+ 
+  } else if (inByte == CMD_RESUME) {
+    bAns = dbg->resume();
+    if (handleError()) return;
+    sendFrame( ANS_OK, bAns );
+  } else if (inByte == CMD_HALT) {
+    bAns = dbg->halt();
+    if (handleError()) return;
+    sendFrame( ANS_OK, bAns );
 
   } else if (inByte == CMD_EXEC_1) {
     
@@ -241,7 +254,7 @@ void loop() {
         delay(50);
 
       }
-    }
+    } 
     
     // Read debug status
     dbg->switchRead();

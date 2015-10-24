@@ -72,6 +72,12 @@ class CCMemBlock:
 			self.size = 0
 			return True
 		else:
+			#print "DBG ",
+			#print self.addr,
+			#print " ",
+			#print self.size,
+			#print " ",
+			#print addr
 			return ((self.addr + self.size) == addr)
 
 	def set(self, offset, bytes):
@@ -87,6 +93,8 @@ class CCMemBlock:
 		"""
 		Stack bytes to the memory block
 		"""
+		#print "adding ",
+		#print len(bytes)
 		self.size += len(bytes)
 		self.bytes += bytes
 
@@ -338,7 +346,6 @@ class CCHEXFile:
 				# Check for end-of-file
 				if bType == 0x01:
 					break
-
 				# Check for address shift records
 				elif bType == 0x02:
 					baseAddress = ((bytes[0] << 8) | bytes[1]) << 4
@@ -350,19 +357,21 @@ class CCHEXFile:
 
 					# Apply base address shift
 					bAddr |= baseAddress
-
+					#print bAddr
 					# Check if we are continuing
 					if mb.isContinuous(bAddr):
+						#print bytes
 						mb.stack(bytearray(bytes))
 					else:
 						self.memBlocks.append(mb)
 						mb = CCMemBlock(bAddr)
+						mb.stack(bytearray(bytes))
 
 					#print "0x%06x : " % bAddr, "".join( "%02x " % x for x in bytes )
 
 				# Everything else raise error
 				else:
 					raise IOError("Line %i: Unknown record type %02x" % (i, bType))
-
+			
 			# Stack rest
 			self.memBlocks.append(mb)

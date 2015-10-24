@@ -398,7 +398,7 @@ byte CCDebugger::exit()
 
   byte bAns;
 
-  write( 0x48 ); // RESUME
+  write( 0x4C ); //0x48 ); // RESUME
   switchRead();
   bAns = read(); // debug status
   switchWrite(); 
@@ -422,7 +422,7 @@ byte CCDebugger::getConfig() {
 
   byte bAns;
 
-  write( 0x20 ); // RD_CONFIG
+  write( 0x24); //0x20 ); // RD_CONFIG
   switchRead();
   bAns = read(); // Config
   switchWrite(); 
@@ -445,7 +445,7 @@ byte CCDebugger::setConfig( byte config ) {
 
   byte bAns;
 
-  write( 0x18 ); // WR_CONFIG
+  write( 0x1D); //0x18 ); // WR_CONFIG
   write( config );
   switchRead();
   bAns = read(); // Config
@@ -470,7 +470,7 @@ byte CCDebugger::exec( byte oc0 )
 
   byte bAns;
 
-  write( 0x51 ); // DEBUG_INSTR + 1b
+  write( 0x55); //0x51 ); // DEBUG_INSTR + 1b
   write( oc0 );
   switchRead();
   bAns = read(); // Accumulator
@@ -495,7 +495,7 @@ byte CCDebugger::exec( byte oc0, byte oc1 )
 
   byte bAns;
 
-  write( 0x52 ); // DEBUG_INSTR + 2b
+  write( 0x56); //0x52 ); // DEBUG_INSTR + 2b
   write( oc0 );
   write( oc1 );
   switchRead();
@@ -521,7 +521,7 @@ byte CCDebugger::exec( byte oc0, byte oc1, byte oc2 )
 
   byte bAns;
 
-  write( 0x53 ); // DEBUG_INSTR + 3b
+  write( 0x57); //0x53 ); // DEBUG_INSTR + 3b
   write( oc0 );
   write( oc1 );
   write( oc2 );
@@ -548,7 +548,7 @@ byte CCDebugger::execi( byte oc0, unsigned short c0 )
 
   byte bAns;
 
-  write( 0x53 ); // DEBUG_INSTR + 3b
+  write( 0x57); // 0x53 ); // DEBUG_INSTR + 3b
   write( oc0 );
   write( (c0 >> 8) & 0xFF );
   write(  c0 & 0xFF );
@@ -602,7 +602,7 @@ unsigned short CCDebugger::getPC() {
   unsigned short bAns;
   byte bRes;
 
-  write( 0x28 ); // GET_PC
+  write( 0x28); // 0x28 ); // GET_PC
   switchRead();
   bRes = read(); // High order
   bAns = bRes << 8;
@@ -628,7 +628,7 @@ byte CCDebugger::getStatus() {
 
   byte bAns;
 
-  write( 0x30 ); // READ_STATUS
+  write( 0x34); //0x30 ); // READ_STATUS
   switchRead();
   bAns = read(); // debug status
   switchWrite(); 
@@ -651,7 +651,53 @@ byte CCDebugger::step() {
 
   byte bAns;
 
-  write( 0x58 ); // STEP_INSTR
+  write( 0x5C); //0x58 ); // STEP_INSTR
+  switchRead();
+  bAns = read(); // Accumulator
+  switchWrite(); 
+
+  return bAns;
+}
+
+/**
+ * resume instruction
+ */
+byte CCDebugger::resume() {
+  if (!active) {
+    errorFlag = 1;
+    return 0;
+  }
+  if (!inDebugMode) {
+    errorFlag = 2;
+    return 0;
+  }
+
+  byte bAns;
+
+  write( 0x4C); //RESUME
+  switchRead();
+  bAns = read(); // Accumulator
+  switchWrite(); 
+
+  return bAns;
+}
+
+/**
+ * halt instruction
+ */
+byte CCDebugger::halt() {
+  if (!active) {
+    errorFlag = 1;
+    return 0;
+  }
+  if (!inDebugMode) {
+    errorFlag = 2;
+    return 0;
+  }
+
+  byte bAns;
+
+  write( 0x44); //HALT
   switchRead();
   bAns = read(); // Accumulator
   switchWrite(); 
@@ -675,7 +721,7 @@ byte CCDebugger::chipErase()
 
   byte bAns;
 
-  write( 0x10 ); // CHIP_ERASE
+  write( 0x14); //0x10 ); // CHIP_ERASE
   switchRead();
   bAns = read(); // Debug status
   switchWrite(); 

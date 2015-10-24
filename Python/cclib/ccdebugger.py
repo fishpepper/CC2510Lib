@@ -37,6 +37,8 @@ CMD_BRUSTWR  = 0x0A
 CMD_RD_CFG   = 0x0B
 CMD_WR_CFG   = 0x0C
 CMD_CHPERASE = 0x0D
+CMD_RESUME   = 0x0E
+CMD_HALT     = 0x0F
 CMD_PING     = 0xF0
 
 # Response constants
@@ -69,7 +71,7 @@ class CCDebugger:
 
 		# Open port
 		try:
-			self.ser = serial.Serial(port, timeout=1)
+			self.ser = serial.Serial(port, 115200, timeout=1, rtscts=False)
 		except:
 			raise IOError("Could not open port %s" % port)
 
@@ -81,19 +83,27 @@ class CCDebugger:
 
 		# Get chip info & ID
 		self.chipID = self.getChipID()
-		self.chipInfo = self.getChipInfo()
 		self.debugStatus = self.getStatus()
+		print self.debugStatus
 		self.debugConfig = self.readConfig()
 
-		# Populate variables
-		self.flashSize = self.chipInfo['flash'] * 1024
-		self.flashPageSize = 0x800
-		self.sramSize = self.chipInfo['sram'] * 1024
-		self.bulkBlockSize = 0x800
-
-		# Validate chip
-		if (self.chipID & 0xff00) != 0x8d00:
-			raise IOError("This class works ONLY with CC2540 TI chips (This is a 0x%04x)!" % self.chipID)
+		if (self.chipID & 0xFF00) == 0x8100:
+			print "detected a cc2510f16"
+			#different on cc2510:
+			self.chipInfo = {
+				'flash' : 16,
+				'usb'   : 0,
+				'sram'  : 2
+			}
+			
+			# Populate variables
+			self.flashSize = self.chipInfo['flash'] * 1024
+			self.flashPageSize = 0x800
+			self.sramSize = self.chipInfo['sram'] * 1024
+			self.bulkBlockSize = 0x800
+			self.flashWordSize = 2 #cc251x have 2 bytes per word
+		else:
+			raise IOError("This class works ONLY with CC251xx TI chips (This is a 0x%04x)!" % self.chipID)
 
 	###############################################
 	# Low-level functions
@@ -103,7 +113,6 @@ class CCDebugger:
 		"""
 		Read and translate the 3-byte response frame from arduino
 		"""
-
 		# Read response frame
 		status = ord(self.ser.read())
 		bH = ord(self.ser.read())
@@ -132,7 +141,7 @@ class CCDebugger:
 		"""
 		Send the specified frame to the output queue
 		"""
-
+		#print "sending \\x%02X\\x%02X\\x%02X\\x%02X" % ((cmd), (c1), (c2), (c3) )
 		# Send the 4-byte command frame
 		self.ser.write( chr(cmd)+chr(c1)+chr(c2)+chr(c3) )
 		self.ser.flush()
@@ -193,17 +202,31 @@ class CCDebugger:
 		"""
 		return self.sendFrame(CMD_STEP)
 
+	def resume(self):
+		"""
+		resume program exec
+		"""
+		return self.sendFrame(CMD_RESUME)
+	
+	def halt(self):
+		"""
+		halt program exec
+		"""
+		return self.sendFrame(CMD_HALT)
+
+
+
 	def getChipID(self):
 		"""
 		Return the ChipID as read from the chip
 		"""
 		return self.sendFrame(CMD_CHIP_ID)
 
-	def getStatus(self):
+	def getStatus(self, raiseException=True):
 		"""
 		Return the debug status
 		"""
-		ans = self.sendFrame(CMD_STATUS)
+		ans = self.sendFrame(CMD_STATUS, raiseException=raiseException)
 
 		# Update local variables
 		self.debugStatus = ans
@@ -214,6 +237,9 @@ class CCDebugger:
 		Return the program counter position
 		"""
 		return self.sendFrame(CMD_PC)
+
+	def setPC(self, address):
+		self.instr(0x02, (address>>8)&0xFF, address&0xFF)
 
 	def instr(self, c1, c2=None, c3=None):
 		"""
@@ -319,7 +345,7 @@ class CCDebugger:
 		"""
 		Write any size of buffer in the XDATA region
 		"""
-
+		
 		# Setup DPTR
 		a = self.instri( 0x90, offset )		# MOV DPTR,#data16
 
@@ -344,8 +370,22 @@ class CCDebugger:
 		# Recalibrate offset
 		offset -= fBank * 0x8000
 
-		# Read XDATA-mapped CODE region
-		return self.readXDATA( 0x8000 + offset, size )
+		# Setup DPTR
+		a = self.instri( 0x90, offset )		# MOV DPTR,#data16
+
+		# Prepare ans array
+		ans = bytearray()
+
+		# Read bytes
+		for i in range(0, size):
+			a = self.instr ( 0xE4 )			# MOVX A,@DPTR
+			a = self.instr ( 0x93 )			# MOVX A,@DPTR
+			ans.append(a)
+			a = self.instr ( 0xA3 )			# INC DPTR
+
+
+		#
+		return ans
 
 
 	def getRegister( self, reg ):
@@ -440,6 +480,117 @@ class CCDebugger:
 
 		# Write flash code page
 		return self.writeCODE( self.flashSize - self.flashPageSize, pageData, erase=True )
+
+	###############################################
+	# cc251x
+	###############################################
+	
+	def readFlashPage(self, address):
+		return self.readCODE(address & 0x7FFFF, self.flashPageSize)
+	
+	def writeFlashPage(self, address, inputArray, erase_page=True):
+		if len(inputArray) != self.flashPageSize:
+			raise IOError("input data size != flash page size!")
+
+		#calc words per flash page
+		words_per_flash_page = self.flashPageSize / self.flashWordSize
+		print "words_per_flash_page = %d" % (words_per_flash_page)
+		print "flashWordSize = %d" % (self.flashWordSize)
+		
+		routine8_1 = [
+			#see http://www.ti.com/lit/ug/swra124/swra124.pdf page 11
+			0x75, 0xAD, ((address >> 8) / self.flashWordSize) & 0x7E, 	#MOV FADDRH, #imm; 
+			0x75, 0xAC, 0x00						#MOV FADDRL, #00;
+		]
+		routine8_erase = [
+			0x75, 0xAE, 0x01,						#MOV FLC, #01H; // ERASE 
+			#; Wait for flash erase to complete 
+			0xE5, 0xAE,							#eraseWaitLoop:  MOV A, FLC; 
+			0x20, 0xE7, 0xFB						#JB ACC_BUSY, eraseWaitLoop;
+		]
+		routine8_2 = [
+			#; Initialize the data pointer 
+			0x90, 0xF0, 0x00,						#MOV DPTR, #0F000H; 
+			#; Outer loops 
+			0x7F, (((words_per_flash_page)>>8)&0xFF),			#MOV R7, #imm; 
+			0x7E, ((words_per_flash_page)&0xFF),				#MOV R6, #imm; 
+			0x75, 0xAE, 0x02,						#MOV FLC, #02H; // WRITE 
+			#; Inner loops 
+			0x7D, self.flashWordSize,					#writeLoop:          MOV R5, #imm; 
+			0xE0,								#writeWordLoop:          MOVX A, @DPTR; 
+			0xA3,								#INC DPTR; 
+			0xF5, 0xAF,							#MOV FWDATA, A;  
+			0xDD, 0xFA,							#DJNZ R5, writeWordLoop; 
+			#; Wait for completion 
+			0xE5, 0xAE,							#writeWaitLoop:      MOV A, FLC; 
+			0x20, 0xE6, 0xFB,						#JB ACC_SWBSY, writeWaitLoop; 
+			0xDE, 0xF1,							#DJNZ R6, writeLoop; 
+			0xDF, 0xEF,							#DJNZ R7, writeLoop; 
+			#; Done, fake a breakpoint 
+			#0xA5								#DB 0xA5; 
+		]
+		
+		led_routine = [
+			#LED_GREEN_DIR |= (1<<LED_GREEN_PIN);
+			0x43, 0xFF, 0x10,	#      [24]  935         orl     _P2DIR,#0x10
+			#LED_GREEN_PORT = (1<<LED_GREEN_PIN);
+			0x75, 0xA0, 0x10,	#      [24]  937         mov     _P2,#0x10
+			#while(1);
+			#0x80, 0xFE		#      [24]  941         sjmp    00102$
+			0xA5								#DB 0xA5; 
+		]
+		
+		
+		#build routine 
+		routine = routine8_1
+		if (erase_page):
+			routine += routine8_erase
+		routine += routine8_2
+		
+		#add led code to flash code (for debugging)
+		#aroutine = led_routine + routine
+		routine = routine + led_routine
+		
+		for x in routine:
+			print "%02X" % (x),
+		
+		#send data to xdata memory:
+		print "copying data to xdata"
+		self.writeXDATA(0xF000, inputArray)
+		
+		#send program to xdata mem
+		print "copying flash routine to xdata"
+		self.writeXDATA(0xF000 + self.flashPageSize, routine)
+	
+		print "executing code"
+		#execute MOV MEMCTR, (bank * 16) + 1; 
+		self.instr(0x75, 0xC7, 0x51)
+		#set PC to start of program
+		self.setPC(0xF000 + self.flashPageSize)
+		#start program exec
+		self.resume()
+		
+		print "page write running",
+		while True:
+			print ".",
+			time.sleep(.1)
+			#fetch status
+			status = self.getStatus()
+			#done?
+			print "STAT %02X" % (status)
+			if (status & 0x20):
+				#CPU HALTED -> done
+				print "done."
+				break
+		#print "WAIT"
+		while(1):
+			continue
+		time.sleep(2)
+		
+		
+		print "done"
+		
+
 
 	###############################################
 	# BlueGiga-Specific functions
