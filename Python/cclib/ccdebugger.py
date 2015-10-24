@@ -222,11 +222,11 @@ class CCDebugger:
 		"""
 		return self.sendFrame(CMD_CHIP_ID)
 
-	def getStatus(self, raiseException=True):
+	def getStatus(self):
 		"""
 		Return the debug status
 		"""
-		ans = self.sendFrame(CMD_STATUS, raiseException=raiseException)
+		ans = self.sendFrame(CMD_STATUS)
 
 		# Update local variables
 		self.debugStatus = ans
@@ -526,20 +526,13 @@ class CCDebugger:
 			0x20, 0xE6, 0xFB,						#JB ACC_SWBSY, writeWaitLoop; 
 			0xDE, 0xF1,							#DJNZ R6, writeLoop; 
 			0xDF, 0xEF,							#DJNZ R7, writeLoop; 
-			#; Done, fake a breakpoint 
-			#0xA5								#DB 0xA5; 
-		]
-		
-		led_routine = [
 			#LED_GREEN_DIR |= (1<<LED_GREEN_PIN);
-			0x43, 0xFF, 0x10,	#      [24]  935         orl     _P2DIR,#0x10
+			0x43, 0xFF, 0x18,	#      [24]  935         orl     _P2DIR,#0x10
 			#LED_GREEN_PORT = (1<<LED_GREEN_PIN);
-			0x75, 0xA0, 0x10,	#      [24]  937         mov     _P2,#0x10
-			#while(1);
-			#0x80, 0xFE		#      [24]  941         sjmp    00102$
+			0x75, 0xA0, 0x18,	#      [24]  937         mov     _P2,#0x10
+			#; Done, fake a breakpoint 
 			0xA5								#DB 0xA5; 
 		]
-		
 		
 		#build routine 
 		routine = routine8_1
@@ -549,10 +542,13 @@ class CCDebugger:
 		
 		#add led code to flash code (for debugging)
 		#aroutine = led_routine + routine
-		routine = routine + led_routine
+		#routine = routine + led_routine
 		
-		for x in routine:
-			print "%02X" % (x),
+		#for x in routine:
+		#	print "%02X" % (x),
+		
+		#halt CPU
+		self.halt()
 		
 		#send data to xdata memory:
 		print "copying data to xdata"
@@ -567,26 +563,26 @@ class CCDebugger:
 		self.instr(0x75, 0xC7, 0x51)
 		#set PC to start of program
 		self.setPC(0xF000 + self.flashPageSize)
-		#start program exec
+		#start program exec, will continue after routine exec due to breakpoint
+		
+		#time.sleep(0.1)
 		self.resume()
 		
-		print "page write running",
-		while True:
-			print ".",
-			time.sleep(.1)
-			#fetch status
-			status = self.getStatus()
-			#done?
-			print "STAT %02X" % (status)
-			if (status & 0x20):
-				#CPU HALTED -> done
-				print "done."
-				break
-		#print "WAIT"
-		while(1):
-			continue
-		time.sleep(2)
 		
+		print "page write running"
+		#strange, the get status code does not work
+		#it seems as it disrupts the write
+		#use a constant delay here (FIXME)
+		time.sleep(1)
+		
+		#s = self.getStatus()
+		#while (( s & 0x20 ) != 0):
+			#time.sleep(0.01)
+			#s = self.getStatus()
+			#print "WAITING"
+			#sys.stdout.flush()
+
+		self.halt()
 		
 		print "done"
 		

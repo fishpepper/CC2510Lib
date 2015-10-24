@@ -3,6 +3,12 @@ CC2510Lib
 
 this is a fork of the CCLib (https://github.com/wavesoft/CCLib)
 
+STATUS: WORK IN PROGRESS! NOT YET WORKING!
+working:
+- connecting
+- cc_info.py
+- erase chip and writing random data seems to be ok (to be tested soon!)
+
 i ported it to support programming of a cc2510f16 chip. adding cc251x support is trivial, see ccdebugger.py and chip id code
 
 Wiring

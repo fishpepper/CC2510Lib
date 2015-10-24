@@ -19,6 +19,7 @@
 
 from cclib import CCDebugger, CCHEXFile
 import sys
+import time
 
 def printHelp():
 	"""
@@ -88,13 +89,14 @@ print "\nFlashing:"
 try:
 	print " - Chip erase..."
 	dbg.chipErase()
+	time.sleep(5)
 	
 	data = []
 	for i in range(dbg.flashPageSize):
 		data.append(i & 0xFF)
 
 	print " - Flashing..."
-	dbg.writeFlashPage(0x0000, data, False)
+	dbg.writeFlashPage(0x0000, data, True)
 	
 	print " - Reading..."
 	for i in range(dbg.flashSize/dbg.flashPageSize):
