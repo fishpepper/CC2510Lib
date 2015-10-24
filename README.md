@@ -1,31 +1,30 @@
-CCLib
+CC2510Lib
 =====
 
-An arduino and a python library that implements a CC.Debugger for Texas Instruments' CCxxxx chips. 
-The python library targets specifically the CC2540 SoC which is used by BlueGiga's BLE112 & BLE113 modules.
-The arduino library on the other hand is just a low-level debug protocol implementation that can be used 
-with any CCxxxx chip.
+this is a fork of the CCLib (https://github.com/wavesoft/CCLib)
+
+i ported it to support programming of a cc2510f16 chip. adding cc251x support is trivial, see ccdebugger.py and chip id code
 
 Wiring
 ------
 
-The arduino library is tailored for 5V Teensy/Arduino chips, and therefore provide two separate DD pins, for use with voltage dividers (since the BLE112/3 chips operate on 3.3V).
+The arduino library is tailored for 5V Teensy/Arduino chips, and therefore provide two separate DD pins, for use with voltage dividers to 3.3V.
 
 Start with the **CCLib_proxy** example from CCLib and change the pin configuration in order to match your setup. For your reference, here is the wiring diagram with voltage dividers.
 
     For the DD Pin:
     
-     <CC_DD_O> --[ 100k ]-- <CC_DD_I> --[ 200k ]-- <GND>
+     <CC_DD_O> --[ 2k2 ]-- <CC_DD_I> --[ 3k3 ]-- <GND>
                                 |
                                {DD}
      
     For the DC Pin:
     
-     <CC_DC> --[ 100k ]-- {DC} --[ 200k ]-- <GND>
+     <CC_DC> --[ 2k2 ]-- {DC} --[ 3k3 ]-- <GND>
      
     For the RST Pin:
      
-     <CC_DC> --[ 100k ]-- {RST} --[ 200k ]-- <GND>
+     <CC_DC> --[ 2k2 ]-- {RST} --[ 3k3 ]-- <GND>
 
 Where {DD},{DC} and {RST} are the pins on the CCxxxx chip.
 
@@ -63,12 +62,12 @@ If the status code is `ANS_OK`, the `ResH:ResL` word contains the resulting word
 Disclaimer
 ----------
 
-I have successfully managed to flash various BLE112 modules using the scripts provided with this project, however I DO NOT GURANTEE THAT THIS WILL WORK IN YOUR CASE. **YOU ARE USING THIS CODE SOLELY AT YOUR OWN RISK!**
+i sucessfully flashed a cc2510f16 chip with the scripts provided with this project, however I DO NOT GURANTEE THAT THIS WILL WORK IN YOUR CASE. **YOU ARE USING THIS CODE SOLELY AT YOUR OWN RISK!**
 
 License
 -------
 
-Copyright (c) 2014 Ioannis Charalampidis
+Copyright (c) 2015 Simon Schulz - github.com/fishpepper
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
