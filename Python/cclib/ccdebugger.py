@@ -98,9 +98,10 @@ class CCDebugger:
 			
 			# Populate variables
 			self.flashSize = self.chipInfo['flash'] * 1024
-			self.flashPageSize = 0x800
+			#all cc251x have 0x400 as flash page size
+			self.flashPageSize = 0x400
 			self.sramSize = self.chipInfo['sram'] * 1024
-			self.bulkBlockSize = 0x800
+			self.bulkBlockSize = 0x800 #???
 			self.flashWordSize = 2 #cc251x have 2 bytes per word
 		else:
 			raise IOError("This class works ONLY with CC251xx TI chips (This is a 0x%04x)!" % self.chipID)
@@ -569,19 +570,31 @@ class CCDebugger:
 		self.resume()
 		
 		
-		print "page write running"
+		print "page write running",
 		#strange, the get status code does not work
 		#it seems as it disrupts the write
 		#use a constant delay here (FIXME)
-		time.sleep(1)
+		##time.sleep(1)
 		
-		#s = self.getStatus()
-		#while (( s & 0x20 ) != 0):
-			#time.sleep(0.01)
-			#s = self.getStatus()
-			#print "WAITING"
-			#sys.stdout.flush()
-
+		
+		timeout = 200 #=2s
+		while (timeout > 0):
+			#show progress
+			print ".",
+			sys.stdout.flush()
+			#check status (bit 0x20 = cpu halted)
+			if ((self.getStatus() & 0x20 ) != 0):
+				print "done"
+				break
+			#timeout increment
+			timeout -= 1
+			#delay (10ms)
+			time.sleep(0.01)
+			
+		
+		if (timeout <=0):
+			raise IOError("flash write timed out!")
+		
 		self.halt()
 		
 		print "done"
