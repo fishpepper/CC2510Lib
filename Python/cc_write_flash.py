@@ -82,22 +82,15 @@ for mb in hexFile.memBlocks:
 	# Print portion
 	print "            0x%04x     %6i B " % (mb.addr, mb.size)
 	
-print "> flash usage: %3.1f%% (%d bytes of %d)\n" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
+print "> flash usage: %3.1f%% (%d bytes of %d)" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
 
 # Check for oversize data
 if maxMem > (dbg.flashSize):
 	print "ERROR: Data too bit to fit in chip's memory!"
 	sys.exit(4)
 
-# Confirm
-print "> WARNING: this is going to ERASE and REPROGRAM the chip.\n> Are you sure? <y/N>: ", 
-ans = sys.stdin.readline()[0:-1]
-if (ans != "y") and (ans != "Y"):
-	print "\nAborted"
-	sys.exit(2)
 
-print "\r> Flashing:"
-
+print "> flashing:"
 try:
 	print "> %3d%%: erasing chip..." % (100*(1.0/17)),
 	dbg.chipErase()
@@ -118,7 +111,7 @@ try:
 		if (emptyPage == pageData):
 			print "> %3d%%: skipping empty page %d (0xFF) page" % ((100*((2.0+p)/17)), p)
 		else:
-			print "> %3d%% writing page %d of %d..." % ((100*((2.0+p)/17)), p, maxPages-1),
+			print "> %3d%%: writing page %d of %d..." % ((100*((2.0+p)/17)), p, maxPages-1),
 			sys.stdout.flush()
 			dbg.writeFlashPage(pageAddress, pageData, True)
 			#read back & verify
@@ -129,12 +122,12 @@ try:
 			else:
 				print "\nERROR: verification failed!"
 				sys.exit(2)
+	print "> completed. will start target now"
+	print ""
+
+	dbg.setPC(0x0000)
+	dbg.resume()
 	
 except Exception as e:
  	print "ERROR: %s" % str(e)
  	sys.exit(3)
-
-print "> 100%%: completed !"
-print ""
-
-print "TODOTODOTODO: start target after flashing!"
