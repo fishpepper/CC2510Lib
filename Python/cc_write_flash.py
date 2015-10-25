@@ -57,6 +57,9 @@ hexFile.load()
 
 # Display sections & calculate max memory usage
 maxMem = 0
+#build flash image
+flash_data = [0xFF] * dbg.flashSize 
+
 print "Sections in %s:\n" % sys.argv[1]
 print " Addr.    Size"
 print "-------- -------------"
@@ -66,13 +69,27 @@ for mb in hexFile.memBlocks:
 	memTop = mb.addr + mb.size
 	if memTop > maxMem:
 		maxMem = memTop
-
+	
+	#add to flash image:
+	for i in range(mb.size):
+		dest = mb.addr + i
+		data = mb.bytes[i]
+		#make sure we have no overlapping writes:
+		if (flash_data[dest] != 0xFF):
+			print "ERROR: sections in hex file overlap ?!"
+			sys.exit(4)
+		else:
+			#fine, store this byte
+			flash_data[dest] = data
+	
 	# Print portion
-	print " 0x%04x   %i B " % (mb.addr, mb.size)
+	print " 0x%04x   %6i B " % (mb.addr, mb.size)
 print ""
 
+print "flash usage: %3.1f%% (%d bytes of %d)\n" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
+
 # Check for oversize data
-if maxMem > (dbg.chipInfo['flash'] * 1024):
+if maxMem > (dbg.flashSize):
 	print "ERROR: Data too bit to fit in chip's memory!"
 	sys.exit(4)
 
