@@ -571,13 +571,9 @@ class CCDebugger:
 		
 		
 		print "page write running",
-		#strange, the get status code does not work
-		#it seems as it disrupts the write
-		#use a constant delay here (FIXME)
-		##time.sleep(1)
 		
-		
-		timeout = 200 #=2s
+		#set some timeout (2 seconds)
+		timeout = 200
 		while (timeout > 0):
 			#show progress
 			print ".",
