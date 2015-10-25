@@ -42,14 +42,11 @@ except Exception as e:
 	sys.exit(1)
 
 # Get info
-print "\nChip information:"
-print "      Chip ID : 0x%04x" % dbg.chipID
-print "   Flash size : %i Kb" % dbg.chipInfo['flash']
-print "    SRAM size : %i Kb" % dbg.chipInfo['sram']
-if dbg.chipInfo['usb']:
-	print "          USB : Yes"
-else:
-	print "          USB : No"
+print "> Chip information:"
+print "                     Chip ID    : 0x%04x" % dbg.chipID
+print "                     Flash size : %3i Kb" % dbg.chipInfo['flash']
+print "                    SRAM size   : %3i Kb" % dbg.chipInfo['sram']
+print ""
 
 # Parse the HEX file
 hexFile = CCHEXFile( sys.argv[1] )
@@ -58,11 +55,11 @@ hexFile.load()
 # Display sections & calculate max memory usage
 maxMem = 0
 #build flash image
-flash_data = [0xFF] * dbg.flashSize 
+flash_data = bytearray([0xFF] * dbg.flashSize )
 
-print "Sections in %s:\n" % sys.argv[1]
-print " Addr.    Size"
-print "-------- -------------"
+print "> Sections in %s:\n" % sys.argv[1]
+print "            Addr.    Size"
+print "            -------- -------------"
 for mb in hexFile.memBlocks:
 	
 	# Calculate top position
@@ -76,17 +73,16 @@ for mb in hexFile.memBlocks:
 		data = mb.bytes[i]
 		#make sure we have no overlapping writes:
 		if (flash_data[dest] != 0xFF):
-			print "ERROR: sections in hex file overlap ?!"
+			print "\nERROR: sections in hex file overlap ?!"
 			sys.exit(4)
 		else:
 			#fine, store this byte
 			flash_data[dest] = data
 	
 	# Print portion
-	print " 0x%04x   %6i B " % (mb.addr, mb.size)
-print ""
-
-print "flash usage: %3.1f%% (%d bytes of %d)\n" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
+	print "            0x%04x     %6i B " % (mb.addr, mb.size)
+	
+print "> flash usage: %3.1f%% (%d bytes of %d)\n" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
 
 # Check for oversize data
 if maxMem > (dbg.flashSize):
@@ -94,55 +90,51 @@ if maxMem > (dbg.flashSize):
 	sys.exit(4)
 
 # Confirm
-print "This is going to ERASE and REPROGRAM the chip. Are you sure? <y/N>: ", 
+print "> WARNING: this is going to ERASE and REPROGRAM the chip.\n> Are you sure? <y/N>: ", 
 ans = sys.stdin.readline()[0:-1]
 if (ans != "y") and (ans != "Y"):
-	print "Aborted"
+	print "\nAborted"
 	sys.exit(2)
 
-
-print "\nFlashing:"
+print "\r> Flashing:"
 
 try:
-	print " - Chip erase..."
+	print "> %3d%%: erasing chip..." % (100*(1.0/17)),
 	dbg.chipErase()
-	time.sleep(5)
+	time.sleep(1)
+	print "done"
 	
-	data = []
-	for i in range(dbg.flashPageSize):
-		data.append(i & 0xFF)
-
-	print " - Flashing..."
-	dbg.writeFlashPage(0x0000, data, True)
 	
-	print " - Reading..."
-	for i in range(dbg.flashSize/dbg.flashPageSize):
-		print "page[%d]" % (i),
-		read = dbg.readFlashPage(i*dbg.flashPageSize)
-		for x in read:
-			print "%04X" % x,
-		print "."
+	maxPages  = dbg.flashSize/dbg.flashPageSize
+	emptyPage = bytearray([0xFF] * dbg.flashPageSize)
 	
+	for p in range(maxPages):
+		pageAddress = p*dbg.flashPageSize
+		
+		#data to write
+		pageData = flash_data[pageAddress:(p+1)*dbg.flashPageSize]
+		
+		#check if page to write is empty:
+		if (emptyPage == pageData):
+			print "> %3d%%: skipping empty page %d (0xFF) page" % ((100*((2.0+p)/17)), p)
+		else:
+			print "> %3d%% writing page %d of %d..." % ((100*((2.0+p)/17)), p, maxPages-1),
+			sys.stdout.flush()
+			dbg.writeFlashPage(pageAddress, pageData, True)
+			#read back & verify
+			readPage = dbg.readFlashPage(pageAddress)
+			#verify:
+			if (readPage == pageData):
+				print "verify=ok!"
+			else:
+				print "\nERROR: verification failed!"
+				sys.exit(2)
 	
 except Exception as e:
  	print "ERROR: %s" % str(e)
  	sys.exit(3)
 
-
-
-## Flash memory
-#dbg.pauseDMA(False)
-#print " - Flashing %i memory blocks..." % len(hexFile.memBlocks)
-#for mb in hexFile.memBlocks:
-
-	## Flash memory block
-	#print " -> 0x%04x : %i bytes " % (mb.addr, mb.size),
-	#try:
-		#dbg.writeCODE( mb.addr, mb.bytes, verify=True, showProgress=True )
-	#except Exception as e:
-		#print "ERROR: %s" % str(e)
-		#sys.exit(3)
-
-# Done
-print "\nCompleted"
+print "> 100%%: completed !"
 print ""
+
+print "TODOTODOTODO: start target after flashing!"

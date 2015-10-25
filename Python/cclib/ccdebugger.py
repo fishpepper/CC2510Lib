@@ -68,6 +68,8 @@ class CCDebugger:
 		"""
 		Initialize serial port
 		"""
+		
+		self.show_debug_info = False
 
 		# Open port
 		try:
@@ -495,8 +497,9 @@ class CCDebugger:
 
 		#calc words per flash page
 		words_per_flash_page = self.flashPageSize / self.flashWordSize
-		print "words_per_flash_page = %d" % (words_per_flash_page)
-		print "flashWordSize = %d" % (self.flashWordSize)
+		
+		#print "words_per_flash_page = %d" % (words_per_flash_page)
+		#print "flashWordSize = %d" % (self.flashWordSize)
 		
 		routine8_1 = [
 			#see http://www.ti.com/lit/ug/swra124/swra124.pdf page 11
@@ -527,11 +530,12 @@ class CCDebugger:
 			0x20, 0xE6, 0xFB,						#JB ACC_SWBSY, writeWaitLoop; 
 			0xDE, 0xF1,							#DJNZ R6, writeLoop; 
 			0xDF, 0xEF,							#DJNZ R7, writeLoop; 
+			#set green led for debugging info (DO NOT USE THIS!)
 			#LED_GREEN_DIR |= (1<<LED_GREEN_PIN);
-			0x43, 0xFF, 0x18,	#      [24]  935         orl     _P2DIR,#0x10
+			#0x43, 0xFF, 0x18,	#      [24]  935         orl     _P2DIR,#0x10
 			#LED_GREEN_PORT = (1<<LED_GREEN_PIN);
-			0x75, 0xA0, 0x18,	#      [24]  937         mov     _P2,#0x10
-			#; Done, fake a breakpoint 
+			#0x75, 0xA0, 0x18,	#      [24]  937         mov     _P2,#0x10
+			#; Done with writing, fake a breakpoint in order to HALT the cpu
 			0xA5								#DB 0xA5; 
 		]
 		
@@ -552,35 +556,36 @@ class CCDebugger:
 		self.halt()
 		
 		#send data to xdata memory:
-		print "copying data to xdata"
+		if (self.show_debug_info): print "copying data to xdata"
 		self.writeXDATA(0xF000, inputArray)
 		
 		#send program to xdata mem
-		print "copying flash routine to xdata"
+		if (self.show_debug_info): print "copying flash routine to xdata"
 		self.writeXDATA(0xF000 + self.flashPageSize, routine)
 	
-		print "executing code"
+		if (self.show_debug_info): print "executing code"
 		#execute MOV MEMCTR, (bank * 16) + 1; 
 		self.instr(0x75, 0xC7, 0x51)
+		
 		#set PC to start of program
 		self.setPC(0xF000 + self.flashPageSize)
-		#start program exec, will continue after routine exec due to breakpoint
 		
-		#time.sleep(0.1)
+		#start program exec, will continue after routine exec due to breakpoint
 		self.resume()
 		
 		
-		print "page write running",
+		if (self.show_debug_info): print "page write running",
 		
 		#set some timeout (2 seconds)
 		timeout = 200
 		while (timeout > 0):
 			#show progress
-			print ".",
-			sys.stdout.flush()
+			if (self.show_debug_info): 
+				print ".",
+				sys.stdout.flush()
 			#check status (bit 0x20 = cpu halted)
 			if ((self.getStatus() & 0x20 ) != 0):
-				print "done"
+				if (self.show_debug_info): print "done"
 				break
 			#timeout increment
 			timeout -= 1
@@ -593,8 +598,7 @@ class CCDebugger:
 		
 		self.halt()
 		
-		print "done"
-		
+		if (self.show_debug_info): print "done"
 
 
 	###############################################
