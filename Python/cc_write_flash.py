@@ -64,6 +64,9 @@ filename = "".join(args)
 do_page_erase = True
 if (full_erase):
 	do_page_erase = False
+else:
+	print "ERROR: this is buggy, first try always fails?! use -e!"
+	sys.exit(2)
 
 
 #open debugger
@@ -73,6 +76,8 @@ except Exception as e:
 	print "ERROR: %s" % str(e)
 	sys.exit(1)
 
+print "> using file " + filename
+
 # Get info
 print "> Chip information:"
 print "                     Chip ID    : 0x%04x" % dbg.chipID
@@ -81,7 +86,7 @@ print "                    SRAM size   : %3i Kb" % dbg.chipInfo['sram']
 print ""
 
 # Parse the HEX file
-hexFile = CCHEXFile( sys.argv[1] )
+hexFile = CCHEXFile(filename)
 hexFile.load()
 
 # Display sections & calculate max memory usage
@@ -90,7 +95,7 @@ maxMem = 0
 #build flash image
 flash_data = bytearray([0xFF] * dbg.flashSize )
 
-print "> Sections in %s:\n" % sys.argv[1]
+print "> Sections in %s:\n" % filename
 print "            Addr.    Size"
 print "            -------- -------------"
 for mb in hexFile.memBlocks:
@@ -102,9 +107,11 @@ for mb in hexFile.memBlocks:
 	empty = bytearray([0xFF] * mb.size)
 	if (empty == mb.bytes):
 		#no data, ignore this
-		print "> ignoring chunk at %04X" % (mb.addr)
+		print "            0x%04x     %6i B [EMPTY, IGNORED!]" % (mb.addr, mb.size)
 		continue
 	else:
+		# Print portion
+		print "            0x%04x     %6i B " % (mb.addr, mb.size)
 		#count size 
 		if memTop > maxMem:
 			maxMem = memTop
@@ -122,8 +129,6 @@ for mb in hexFile.memBlocks:
 			#fine, store this byte
 			flash_data[dest] = data
 	
-	# Print portion
-	print "            0x%04x     %6i B " % (mb.addr, mb.size)
 	
 print "> flash usage: %3.1f%% (%d bytes of %d)" % ((maxMem*100.0/dbg.flashSize),maxMem, dbg.flashSize)
 

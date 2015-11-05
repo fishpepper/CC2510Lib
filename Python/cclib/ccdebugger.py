@@ -500,7 +500,9 @@ class CCDebugger:
 		
 		#print "words_per_flash_page = %d" % (words_per_flash_page)
 		#print "flashWordSize = %d" % (self.flashWordSize)
-		
+		if (erase_page): 
+			print "[page erased]",
+			
 		routine8_1 = [
 			#see http://www.ti.com/lit/ug/swra124/swra124.pdf page 11
 			0x75, 0xAD, ((address >> 8) / self.flashWordSize) & 0x7E, 	#MOV FADDRH, #imm; 
