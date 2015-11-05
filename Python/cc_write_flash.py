@@ -20,23 +20,55 @@
 from cclib import CCDebugger, CCHEXFile
 import sys
 import time
+import getopt
 
-def printHelp():
-	"""
-	Show help screen
-	"""
-	print "Usage: cc_write_flash.py <hex file> " #[[[<license key>] <bt address>] <hw version>]"
+def usage():
+	print "usage: cc_write_flash.py [-e] [-d] <hex file> "
 	print ""
+	print "       -e          optional argument, forces a full chip erase"
+	print "       -d          optional argument, tty to use (default is /dev/ttyACM0)"
+	print "       <hex file>  hex file to write"
+	print ""
+	
 
-# Wait for filename
-if len(sys.argv) < 2:
-	print "ERROR: Please specify a source hex filename!"
-	printHelp()
-	sys.exit(1)
+#default is no full chip erase!
+full_erase = 0
+tty = "/dev/ttyACM0"
 
-# Open debugger
+if len(sys.argv) < 1:
+	usage()
+	print "ee"
+	sys.exit(2)
+
 try:
-	dbg = CCDebugger("/dev/ttyACM0")
+	(opts, args) = getopt.getopt(sys.argv[1:], "ed:", ["erase", "device="])
+except getopt.GetoptError:          
+	usage()                         
+	sys.exit(2)                     
+for opt, arg in opts:
+	if opt in ("-e", "--erase"):
+		full_erase = 1
+	elif opt in ("-d", "--device"):
+		tty = arg
+
+if (len(args) != 1):
+	print "ERROR: Please specify a source hex filename!"
+	usage()
+	sys.exit(2)
+
+#get filename
+filename = "".join(args)
+
+#there is no need to do a page erase
+#when we do a full erase...
+do_page_erase = True
+if (full_erase):
+	do_page_erase = False
+
+
+#open debugger
+try:
+	dbg = CCDebugger(tty)
 except Exception as e:
 	print "ERROR: %s" % str(e)
 	sys.exit(1)
@@ -54,6 +86,7 @@ hexFile.load()
 
 # Display sections & calculate max memory usage
 maxMem = 0
+
 #build flash image
 flash_data = bytearray([0xFF] * dbg.flashSize )
 
@@ -64,13 +97,23 @@ for mb in hexFile.memBlocks:
 	
 	# Calculate top position
 	memTop = mb.addr + mb.size
-	if memTop > maxMem:
-		maxMem = memTop
+	
+	#check if no data (all 0xFF)
+	empty = bytearray([0xFF] * mb.size)
+	if (empty == mb.bytes):
+		#no data, ignore this
+		print "> ignoring chunk at %04X" % (mb.addr)
+		continue
+	else:
+		#count size 
+		if memTop > maxMem:
+			maxMem = memTop
 	
 	#add to flash image:
 	for i in range(mb.size):
 		dest = mb.addr + i
 		data = mb.bytes[i]
+		
 		#make sure we have no overlapping writes:
 		if (flash_data[dest] != 0xFF):
 			print "\nERROR: sections in hex file overlap ?!"
@@ -92,10 +135,11 @@ if maxMem > (dbg.flashSize):
 
 print "> flashing:"
 try:
-	print "> %3d%%: erasing chip..." % (100*(1.0/17)),
-	dbg.chipErase()
-	time.sleep(1)
-	print "done"
+	if (full_erase):
+		"> %3d%%: erasing chip..." % (100*(1.0/17)),
+		dbg.chipErase()
+		time.sleep(1)
+		print "done"
 	
 	
 	maxPages  = dbg.flashSize/dbg.flashPageSize
@@ -113,7 +157,7 @@ try:
 		else:
 			print "> %3d%%: writing page %d of %d..." % ((100*((2.0+p)/17)), p, maxPages-1),
 			sys.stdout.flush()
-			dbg.writeFlashPage(pageAddress, pageData, True)
+			dbg.writeFlashPage(pageAddress, pageData, do_page_erase)
 			#read back & verify
 			readPage = dbg.readFlashPage(pageAddress)
 			#verify:
