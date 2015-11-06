@@ -46,18 +46,34 @@ else:
 print "\nReading %i KBytes to %s..." % (dbg.chipInfo['flash'], sys.argv[1])
 hexFile = CCHEXFile(sys.argv[1])
 
-# Read in chunks of 4Kb (for UI-update purposes)
-for i in range(0, int(dbg.chipInfo['flash'] / 4)):
+#enter debug mode
+dbg.enter()
 
-	# Read CODE
-	chunk = dbg.readCODE( i * 0x1000, 0x1000 )
+try:
+	maxPages = dbg.chipInfo['flash']
+	for p in range(maxPages):
+		pageAddress = p*dbg.flashPageSize
+		
+		print "\r> %3d%%: reading page %d of %d..." % ((((100.0*p)/(maxPages-1))), p, maxPages-1),
+		sys.stdout.flush()
+		
+		readPage = dbg.readFlashPage(pageAddress)
+		#for x in readPage:
+		#	print "%02X" % (x), 
+		#
+		hexFile.stack(readPage)
+		
+	print "> completed. will (re)start target now"
+	print ""
 
-	# Write chunk to file
-	hexFile.stack(chunk)
+	dbg.setPC(0x0000)
+	dbg.resume()
+	
+except Exception as e:
+ 	print "ERROR: %s" % str(e)
+ 	sys.exit(3)
 
-	# Log status
-	print "%.0f%%..." % ( ( (i+1)*4 * 100) / dbg.chipInfo['flash'] ),
-	sys.stdout.flush()
+
 
 # Save file
 hexFile.save()

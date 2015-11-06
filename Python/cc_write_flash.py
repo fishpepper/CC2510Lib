@@ -64,9 +64,6 @@ filename = "".join(args)
 do_page_erase = True
 if (full_erase):
 	do_page_erase = False
-else:
-	print "ERROR: this is buggy, first try always fails?! use -e!"
-	sys.exit(2)
 
 
 #open debugger
@@ -140,6 +137,9 @@ if maxMem > (dbg.flashSize):
 
 print "> flashing:"
 try:
+	#enter debug mode
+	dbg.enter(); 
+	
 	if (full_erase):
 		"> %3d%%: erasing chip..." % (100*(1.0/17)),
 		dbg.chipErase()

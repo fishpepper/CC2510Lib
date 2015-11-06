@@ -71,6 +71,8 @@ class CCDebugger:
 		
 		self.show_debug_info = False
 
+		self.debug_active = False
+
 		# Open port
 		try:
 			self.ser = serial.Serial(port, 115200, timeout=1, rtscts=False)
@@ -170,6 +172,7 @@ class CCDebugger:
 		"""
 		Enter in debug mode
 		"""
+		self.debug_active = True
 		return self.sendFrame(CMD_ENTER)
 
 	def exit(self):
@@ -180,6 +183,8 @@ class CCDebugger:
 		
 		# Update debug status
 		self.debugStatus = status
+		
+		self.debug_active = False
 		return status
 
 	def readConfig(self):
@@ -303,10 +308,10 @@ class CCDebugger:
 		"""
 		Perform a chip erase
 		"""
-
-		# Re-enter debug mode
-		self.enter()
-
+		if (not self.debug_active):
+			print "ERROR: not in debug mode! did you forget a enter() call?\n"
+			sys.exit(2)
+			
 		# Send chip erase command & update debug status
 		self.debugStatus = self.sendFrame(CMD_CHPERASE)
 
@@ -407,9 +412,11 @@ class CCDebugger:
 		"""
 		Select XDATA bank from the Memory Arbiter Control register
 		"""
-		a = self.getRegister( 0xC7 )
-		a = (a & 0xF8) | (bank & 0x07)
-		return self.setRegister( 0xC7, a )
+		#a = self.getRegister( 0xC7 )
+		#a = (a & 0xF8) | (bank & 0x07)
+		#return self.setRegister( 0xC7, a )
+		return self.instr(0x75, 0xC7, bank*16 + 1);
+		
 
 	def selectFlashBank(self, bank):
 		"""
@@ -489,11 +496,18 @@ class CCDebugger:
 	###############################################
 	
 	def readFlashPage(self, address):
+		if (not self.debug_active):
+			print "ERROR: not in debug mode! did you forget a enter() call?\n"
+			sys.exit(2)
 		return self.readCODE(address & 0x7FFFF, self.flashPageSize)
 	
 	def writeFlashPage(self, address, inputArray, erase_page=True):
 		if len(inputArray) != self.flashPageSize:
 			raise IOError("input data size != flash page size!")
+		
+		if (not self.debug_active):
+			print "ERROR: not in debug mode! did you forget a enter() call?\n"
+			sys.exit(2)
 
 		#calc words per flash page
 		words_per_flash_page = self.flashPageSize / self.flashWordSize
