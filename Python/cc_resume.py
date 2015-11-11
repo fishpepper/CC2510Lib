@@ -22,7 +22,7 @@ import sys
 
 # Open debugger
 try:
-	dbg = CCDebugger("/dev/tty.usbmodem12341")
+	dbg = CCDebugger("/dev/ttyACM0")
 except Exception as e:
 	print "ERROR: %s" % str(e)
 	sys.exit(1)

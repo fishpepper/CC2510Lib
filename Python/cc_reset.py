@@ -17,13 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from cclib import CCDebugger, CCHEXFile
+from cclib import CCDebugger, hexdump
 import sys
-
-# Wait for filename
-if len(sys.argv) < 2:
-	print "ERROR: Please specify a filename to dump the FLASH memory to!"
-	sys.exit(1)
 
 # Open debugger
 try:
@@ -41,43 +36,10 @@ if dbg.chipInfo['usb']:
 	print "          USB : Yes"
 else:
 	print "          USB : No"
-
-# Get serial number
-print "\nReading %i KBytes to %s..." % (dbg.chipInfo['flash'], sys.argv[1])
-hexFile = CCHEXFile(sys.argv[1])
-
-#enter debug mode
+print ""
 dbg.enter()
-
-try:
-	maxPages = dbg.chipInfo['flash']
-	for p in range(maxPages):
-		pageAddress = p*dbg.flashPageSize
-		
-		print "\r> %3d%%: reading page %d of %d..." % ((((100.0*p)/(maxPages-1))), p, maxPages-1),
-		sys.stdout.flush()
-		
-		readPage = dbg.readFlashPage(pageAddress)
-		for x in readPage:
-			print "%02X" % (x), 
-		#
-		hexFile.stack(readPage)
-		
-	print "> completed. will (re)start target now"
-	print ""
-
-	dbg.setPC(0x0000)
-	dbg.resume()
-	
-except Exception as e:
- 	print "ERROR: %s" % str(e)
- 	sys.exit(3)
-
-
-
-# Save file
-hexFile.save()
+dbg.setPC(0x0000)
+dbg.resume()
 
 # Done
-print "\n\nCompleted"
 print ""
