@@ -315,9 +315,9 @@ class CCDebugger:
 		# Send chip erase command & update debug status
 		self.debugStatus = self.sendFrame(CMD_CHPERASE)
 
-		# Wait until CHIP_ERASE_BUSY goes down
+		# Wait until CHIP_ERASE_DONE goes up
 		s = self.getStatus()
-		while (( s & 0x80 ) != 0):
+		while (( s & 0x80 ) == 0):
 			time.sleep(0.01)
 			s = self.getStatus()
 
@@ -829,9 +829,9 @@ def renderDebugStatus(cfg):
 	Visualize debug status
 	"""
 	if (cfg & 0x80) != 0:
-		print " [X] CHIP_ERASE_BUSY"
+		print " [X] CHIP_ERASE_DONE"
 	else:
-		print " [ ] CHIP_ERASE_BUSY"
+		print " [ ] CHIP_ERASE_DONE"
 	if (cfg & 0x40) != 0:
 		print " [X] PCON_IDLE"
 	else:
